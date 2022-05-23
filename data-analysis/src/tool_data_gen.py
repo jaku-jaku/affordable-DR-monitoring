@@ -42,15 +42,18 @@ from enum import Enum, Flag, auto
 ##### LOCAL LIB #######
 #######################
 ## USER DEFINED:
-ABS_PATH = "/Users/jaku/JX-Platform/Github/affordable-DR-monitoring/data-analysis/" # Define ur absolute path here
-DATA_DIRECTORY = "data"
+ABS_PATH = "/home/jx/JX_Project/affordable-DR-monitoring/data-analysis/" # Define ur absolute path here
+ABS_DATA_DIRECTORY = "/home/jx/JX_Project/data/dr-dataset"
+# FOLDER_TAG = "sample"
+# FOLDER_TAG = "train"
+FOLDER_TAG = "test"
 
 ## Custom Files:
 def abspath(relative_path):
     return os.path.join(ABS_PATH, relative_path)
 
 def abs_data_path(relative_path):
-    return os.path.join(os.path.join(ABS_PATH, DATA_DIRECTORY), relative_path)
+    return os.path.join(ABS_DATA_DIRECTORY, relative_path)
 
 
 module_path = os.path.abspath(os.path.join('..'))
@@ -68,12 +71,14 @@ TRAIN_DATA_LUT = {
     "[filename]": []
 }
 ### Temporary injection:
-for i in [10,13,15,16,17]:
-    TRAIN_DATA_LUT["[filename]"].append("{0}_left.jpeg".format(i))
-    TRAIN_DATA_LUT["[filename]"].append("{0}_right.jpeg".format(i))
+# for i in [10,13,15,16,17]:
+#     TRAIN_DATA_LUT["[filename]"].append("{0}_left.jpeg".format(i))
+#     TRAIN_DATA_LUT["[filename]"].append("{0}_right.jpeg".format(i))
 
-TRAIN_DATA_LUT["img_abs_path"] = filename_to_abspath(filenames=TRAIN_DATA_LUT["[filename]"], tag="sample")
+TRAIN_DATA_LUT["[filename]"] = jx_lib.get_file_names(DIR=abs_data_path(FOLDER_TAG), file_end=".jpeg")
+TRAIN_DATA_LUT["img_abs_path"] = filename_to_abspath(filenames=TRAIN_DATA_LUT["[filename]"], tag=FOLDER_TAG)
 
+print("> Found Total: {} jpeg images!".format(len(TRAIN_DATA_LUT["[filename]"])))
 # ic(TRAIN_DATA_LUT)
 # %% USER DEFINE ----- ----- ----- ----- ----- -----
 #######################
@@ -97,21 +102,30 @@ class ENUM_FEATURE_FLAGS(Enum):
 ##### FUNCTIONS ######
 ######################
 def img_batch_conversion(
-    PATH_LUT:Dict, OUT_FILENAME:str, 
+    PATH_LUT:Dict,
     flags=[],
     EXPECT_DIM = [320,320], #Eye , Output-after-padding
-    THRESHOLD_CROP  = 10,
+    THRESHOLD_CROP_RATE  = 3,
 ):
-    OUT_FILENAME_FULL = "{}-(crop_{}_{})".format(OUT_FILENAME, "_".join([x.value for x in flags]), EXPECT_DIM)
+    OUT_FILENAME_FULL = "{}-(crop_{}_{})".format(FOLDER_TAG, "_".join([x.value for x in flags]), EXPECT_DIM)
     ic(OUT_FILENAME_FULL)
     OUT_DIR = abs_data_path(OUT_FILENAME_FULL)        
 
     jx_lib.create_folder(DIR=OUT_DIR)
-    new_path_list = []
+    FAILED_LOG_PATH = os.path.join(OUT_DIR,"failed.txt")
+    SUCCESS_LOG_PATH = os.path.join(OUT_DIR,"success.txt")
+
+    def log_failed(filename):
+        with open(FAILED_LOG_PATH, "w") as f:
+            f.write("{}\n".format(filename))
+
+    def log_success(filename):
+        with open(SUCCESS_LOG_PATH, "w") as f:
+            f.write("{}\n".format(filename))
+
     counter = 0
     for img_path, file_name in zip(PATH_LUT["img_abs_path"], PATH_LUT["[filename]"]):
         counter += 1
-        print("\r   >[{}/{}]".format(counter,len(PATH_LUT["img_abs_path"])),  end='')
         out_path = "{}/{}".format(OUT_DIR, file_name)
         img = cv2.imread(img_path)
 
@@ -152,9 +166,11 @@ def img_batch_conversion(
         ### Find Bounding Box
         img_gray =  cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img2 =  cv2.GaussianBlur(img_gray, (11, 11), 0)
+        img_sample_color = np.mean(img2)/THRESHOLD_CROP_RATE
 
         img_0 = img
-        mask_0 = img2 > THRESHOLD_CROP
+        mask_0 = img2 > img_sample_color
+        print("\r   >[{}/{}] sampled_threshold:{}".format(counter,len(PATH_LUT["img_abs_path"]),img_sample_color),  end='')
 
         h,w,c = np.shape(img_0)
         lbl_0 = label(mask_0) 
@@ -162,6 +178,7 @@ def img_batch_conversion(
 
         if len(props) == 0:
             assert("Error Finding A Bounding Box") 
+            log_failed(file_name)
             continue # SKIP
 
         prop_first = props[0]
@@ -174,6 +191,11 @@ def img_batch_conversion(
         cy = int(h/2) if height == h else int(y0+(height)/2) 
         cx = int(w/2) if width == w else int(x0+(width)/2)
         R_min = int(min(height, width)/2) - 10
+
+        if R_min <= 200:
+            print("{}: R_min:{} Error cropping A Circle: too small!".format(file_name, R_min))
+            log_failed(file_name)
+            continue # SKIP
 
         # ic(h,w,c, height, width, cx, cy, R_min)        
         ### Circular Cropping
@@ -220,18 +242,22 @@ def img_batch_conversion(
         # print(out_path)
         cv2.imwrite(out_path, output_image)
         # break
-        new_path_list.append(out_path)
-    
-    return new_path_list
+        log_success(out_path)
+
+    return
 
 # %%
 #%% MAIN
 def main():
     ## MAIN:
     img_batch_conversion(
-        PATH_LUT=TRAIN_DATA_LUT, OUT_FILENAME="sample", 
+        PATH_LUT=TRAIN_DATA_LUT, 
         flags=[
-            ENUM_FEATURE_FLAGS.GAUSSIAN_INVERSION, 
+            # ENUM_FEATURE_FLAGS.GAUSSIAN_INVERSION, 
             # ENUM_FEATURE_FLAGS.HISTOGRAM_EQUALIZATION, # somehow is garbage , so do not use
-        ]
+        ],
+        EXPECT_DIM = [320,320], #Eye , Output-after-padding        
+        THRESHOLD_CROP_RATE  = 3,
     )
+
+main()

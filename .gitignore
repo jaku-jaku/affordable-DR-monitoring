@@ -2,3 +2,6 @@
 .DS_Store
 data-analysis/data/sample-*
 **/__pycache__/*
+*.code-workspace
+**/.ipynb_checkpoints/**
+*.lprof

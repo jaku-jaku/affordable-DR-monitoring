@@ -15,6 +15,9 @@ from collections import OrderedDict
 import numpy as np
 
 
+def get_file_names(DIR:str, file_end:str=".png"):
+    return [ f for f in os.listdir(DIR) if f.endswith(file_end) ]
+
 def get_files(DIR:str, file_end:str=".png"):
     return [ os.path.join(DIR, f) for f in os.listdir(DIR) if f.endswith(file_end) ]
 
