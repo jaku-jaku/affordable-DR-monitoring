@@ -263,10 +263,10 @@ MODEL_DICT = {
         "model":
             nn.Sequential(
                 # Feature Extraction:
-                ResNet(BasicBlock, [3,4,6,3], num_classes=2), # ResNet base v6
-                ResNet(BasicBlock, [0,1,1,1], num_classes=2), # ResNet reduced v8 - ResNet10 - ablation
-                ResNet(BasicBlock, [1,1,1,1], num_classes=2), # ResNet reduced v8 - ResNet10
-                ResNet(BasicBlock, [1,2,3,2], num_classes=2), # ResNet reduced v7
+                ResNet(BasicBlock, [3,4,6,3], num_classes=2), # ResNet34 base v6
+                # ResNet(BasicBlock, [0,1,1,1], num_classes=2), # ResNet reduced v8 - ResNet10 - ablation
+                # ResNet(BasicBlock, [1,1,1,1], num_classes=2), # ResNet reduced v8 - ResNet10
+                # ResNet(BasicBlock, [1,2,3,2], num_classes=2), # ResNet reduced v7
                 # Classifier:
                 nn.Softmax(dim=1),
             ),
